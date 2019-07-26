@@ -247,3 +247,38 @@ func (d *dvb2s) plHeaderEncode() {
 		}
 	}
 }
+
+func (d *dvb2s) plScramble() {
+	initX := 0x00001
+	initY := 0x3ffff
+
+	srx := initX
+	sry := initY
+
+	for i := range d.plFrame {
+		fbx := (srx >> 0) ^ (srx >> 7)
+		fby := (sry >> 0) ^ (sry >> 5) ^ (sry >> 7) ^ (sry >> 10)
+
+		zx := (srx >> 4) ^ (srx >> 6) ^ (srx >> 15)
+		zy := (sry >> 5) ^ (sry >> 6) ^ (sry >> 8) ^ (sry >> 9) ^
+			(sry >> 10) ^ (sry >> 11) ^ (sry >> 12) ^ (sry >> 13) ^
+			(sry >> 14) ^ (sry >> 15)
+
+		r := (((srx ^ sry) & 1) | ((zx ^ zy) << 1)) & 0x03
+
+		srx = ((srx >> 1) & 0x1ffff) | (fbx << 17)
+		sry = ((sry >> 1) & 0x1ffff) | (fby << 17)
+
+		switch r {
+		case 0x00:
+		case 0x01:
+			d.plFrame[i] = complex(-imag(d.plFrame[i]), real(d.plFrame[i]))
+		case 0x02:
+			d.plFrame[i] = -d.plFrame[i]
+		case 0x03:
+			d.plFrame[i] = complex(imag(d.plFrame[i]), -real(d.plFrame[i]))
+		default:
+			panic("unkwown symbol in scrambler\n")
+		}
+	}
+}

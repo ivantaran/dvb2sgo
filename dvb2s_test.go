@@ -227,3 +227,53 @@ func TestDvb2sPlHeaderEncode(t *testing.T) {
 		}
 	})
 }
+
+func TestDvb2sPlFrameScramble(t *testing.T) {
+	t.Run("Dvb2sPlFrameScramble", func(t *testing.T) {
+		d := newDvb2s("normal", 2)
+		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
+		gpoly := make([]bool, 200) // TODO: 200 is magic number
+
+		d.bchInit(gpoly)
+		d.bchEncode(gpoly)
+		d.ldpcEncode()
+		d.mapIntoConstellation()
+		d.plHeaderEncode()
+		d.plScramble()
+
+		file, err := os.Open("../../dvb_s2_qpsk_34/9_plscrambler.txt")
+
+		if err != nil {
+			t.Error(err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+
+		for i := 0; i < len(d.plHeader) && scanner.Scan(); i++ {
+
+		}
+
+		for i := 0; i < len(d.plFrame) && scanner.Scan(); i++ {
+			s := strings.TrimSpace(scanner.Text())
+			s = strings.Replace(s, "- ", "-", -1)
+			s = strings.Replace(s, "+ ", "+", -1)
+			s = strings.TrimSuffix(s, "j")
+
+			list := strings.Split(s, " ")
+			if len(list) != 2 {
+				break
+			}
+
+			real, _ := strconv.ParseFloat(list[0], 64)
+			imag, _ := strconv.ParseFloat(list[1], 64)
+			c := complex(real, imag)
+			if cmplx.Abs(d.plFrame[i]-c) > floatTolerance {
+				t.Errorf("[%d]: %f != %f with range %f\n", i, d.plFrame[i], c, cmplx.Abs(d.plFrame[i]-c))
+			}
+			// else {
+			// 	t.Logf("[%d]: %f != %f with range %f\n", i, d.plFrame[i], c, cmplx.Abs(d.plFrame[i]-c))
+			// }
+		}
+	})
+}

@@ -58,6 +58,33 @@ func TestDvb2sLoad(t *testing.T) {
 	})
 }
 
+func TestDvb2sBbFrameScramble(t *testing.T) {
+	t.Run("Dvb2sBbFrameScramble", func(t *testing.T) {
+		d := newDvb2s("normal", 2, true)
+		d.LoadInputData("../../dvb_s2_qpsk_34/2_merger_slicer.txt")
+		d.bbFrameScramble()
+
+		file, err := os.Open("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
+
+		if err != nil {
+			t.Error(err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+
+		for i := 0; (i < len(d.bbFrame)) && scanner.Scan(); i++ {
+			v, _ := strconv.Atoi(strings.TrimSpace(scanner.Text()))
+			if (v == 1) != d.bbFrame[i] {
+				t.Errorf("[%d]: %t - %t\n", i, v == 1, d.bbFrame[i])
+				if i > 20 {
+					break
+				}
+			}
+		}
+	})
+}
+
 func TestDvb2sInitBch(t *testing.T) {
 	t.Run("dvb2s init BCH", func(t *testing.T) {
 		d := newDvb2s("normal", 2, true)
@@ -77,7 +104,8 @@ func TestDvb2sInitBch(t *testing.T) {
 func TestDvb2sBchEncode(t *testing.T) {
 	t.Run("dvb2s encode BCH", func(t *testing.T) {
 		d := newDvb2s("normal", 2, true)
-		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
+		d.LoadInputData("../../dvb_s2_qpsk_34/2_merger_slicer.txt")
+		d.bbFrameScramble()
 		gpoly := make([]bool, 200) // TODO: 200 is magic number
 		d.bchInit(gpoly)
 		d.bchEncode(gpoly)
@@ -113,7 +141,8 @@ func TestDvb2sBchEncode(t *testing.T) {
 func TestDvb2sLdpcEncode(t *testing.T) {
 	t.Run("dvb2s encode LDPC", func(t *testing.T) {
 		d := newDvb2s("normal", 2, true)
-		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
+		d.LoadInputData("../../dvb_s2_qpsk_34/2_merger_slicer.txt")
+		d.bbFrameScramble()
 		gpoly := make([]bool, 200) // TODO: 200 is magic number
 
 		d.bchInit(gpoly)
@@ -147,7 +176,8 @@ func TestDvb2sLdpcEncode(t *testing.T) {
 func TestDvb2sMapIntoConstellation(t *testing.T) {
 	t.Run("Dvb2sMapIntoConstellation", func(t *testing.T) {
 		d := newDvb2s("normal", 2, true)
-		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
+		d.LoadInputData("../../dvb_s2_qpsk_34/2_merger_slicer.txt")
+		d.bbFrameScramble()
 		gpoly := make([]bool, 200) // TODO: 200 is magic number
 
 		d.bchInit(gpoly)
@@ -188,7 +218,8 @@ func TestDvb2sMapIntoConstellation(t *testing.T) {
 func TestDvb2sPlHeaderEncode(t *testing.T) {
 	t.Run("Dvb2sPlHeaderEncode", func(t *testing.T) {
 		d := newDvb2s("normal", 2, true)
-		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
+		d.LoadInputData("../../dvb_s2_qpsk_34/2_merger_slicer.txt")
+		d.bbFrameScramble()
 		gpoly := make([]bool, 200) // TODO: 200 is magic number
 
 		d.bchInit(gpoly)
@@ -231,7 +262,8 @@ func TestDvb2sPlHeaderEncode(t *testing.T) {
 func TestDvb2sPlFrameScramble(t *testing.T) {
 	t.Run("Dvb2sPlFrameScramble", func(t *testing.T) {
 		d := newDvb2s("normal", 2, true)
-		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
+		d.LoadInputData("../../dvb_s2_qpsk_34/2_merger_slicer.txt")
+		d.bbFrameScramble()
 		gpoly := make([]bool, 200) // TODO: 200 is magic number
 
 		d.bchInit(gpoly)
@@ -278,7 +310,8 @@ func TestDvb2sPlFrameScramble(t *testing.T) {
 func TestDvb2sOutInterpolateBbShape(t *testing.T) {
 	t.Run("Dvb2sOutInterpolateBbShape", func(t *testing.T) {
 		d := newDvb2s("normal", 2, false)
-		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
+		d.LoadInputData("../../dvb_s2_qpsk_34/2_merger_slicer.txt")
+		d.bbFrameScramble()
 		gpoly := make([]bool, 200) // TODO: 200 is magic number
 
 		d.bchInit(gpoly)

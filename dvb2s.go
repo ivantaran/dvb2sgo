@@ -114,6 +114,17 @@ func (d *dvb2s) LoadInputData(fileName string) error {
 	return nil
 }
 
+func (d *dvb2s) bbFrameScramble() {
+	init := 0x4a80
+
+	sr := init
+	for i := range d.bbFrame {
+		fb := ((sr << 14) ^ (sr << 13)) & 0x4000
+		d.bbFrame[i] = d.bbFrame[i] != (fb > 0)
+		sr = ((sr >> 1) & 0x3fff) | fb
+	}
+}
+
 func (d *dvb2s) bchPolymul(a [bchPolyNLength]bool, b []bool, lenb int, r []bool) int {
 
 	var len int
@@ -300,7 +311,7 @@ func (d *dvb2s) plScramble() {
 	}
 }
 
-func (d *dvb2s) outInterpolateBbShape() {
+func (d *dvb2s) outInterpolateBbShape() { // TODO: preload and push forward the filter
 	scale := 1.0 / float64(d.oversampling)
 	j := 0
 	if d.interpolateByRepeat {

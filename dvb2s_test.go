@@ -42,7 +42,7 @@ var bchInitVector = [...]bool{
 
 func TestDvb2sCreating(t *testing.T) {
 	t.Run("creating dvb2s object", func(t *testing.T) {
-		if newDvb2s("normal", 2) == nil {
+		if newDvb2s("normal", 2, true) == nil {
 			t.Error("new dvb2s is nil")
 		}
 	})
@@ -50,7 +50,7 @@ func TestDvb2sCreating(t *testing.T) {
 
 func TestDvb2sLoad(t *testing.T) {
 	t.Run("dvb2s loading", func(t *testing.T) {
-		d := newDvb2s("normal", 2)
+		d := newDvb2s("normal", 2, true)
 		err := d.LoadInputData("../../dvb_s2_qpsk_34/0_data.txt")
 		if err != nil {
 			t.Error(err)
@@ -60,7 +60,7 @@ func TestDvb2sLoad(t *testing.T) {
 
 func TestDvb2sInitBch(t *testing.T) {
 	t.Run("dvb2s init BCH", func(t *testing.T) {
-		d := newDvb2s("normal", 2)
+		d := newDvb2s("normal", 2, true)
 		b := make([]bool, 200) // TODO: 200 is magic number
 		len := d.bchInit(b)
 		if len != 193 {
@@ -76,7 +76,7 @@ func TestDvb2sInitBch(t *testing.T) {
 
 func TestDvb2sBchEncode(t *testing.T) {
 	t.Run("dvb2s encode BCH", func(t *testing.T) {
-		d := newDvb2s("normal", 2)
+		d := newDvb2s("normal", 2, true)
 		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
 		gpoly := make([]bool, 200) // TODO: 200 is magic number
 		d.bchInit(gpoly)
@@ -112,7 +112,7 @@ func TestDvb2sBchEncode(t *testing.T) {
 
 func TestDvb2sLdpcEncode(t *testing.T) {
 	t.Run("dvb2s encode LDPC", func(t *testing.T) {
-		d := newDvb2s("normal", 2)
+		d := newDvb2s("normal", 2, true)
 		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
 		gpoly := make([]bool, 200) // TODO: 200 is magic number
 
@@ -146,7 +146,7 @@ func TestDvb2sLdpcEncode(t *testing.T) {
 
 func TestDvb2sMapIntoConstellation(t *testing.T) {
 	t.Run("Dvb2sMapIntoConstellation", func(t *testing.T) {
-		d := newDvb2s("normal", 2)
+		d := newDvb2s("normal", 2, true)
 		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
 		gpoly := make([]bool, 200) // TODO: 200 is magic number
 
@@ -187,7 +187,7 @@ func TestDvb2sMapIntoConstellation(t *testing.T) {
 
 func TestDvb2sPlHeaderEncode(t *testing.T) {
 	t.Run("Dvb2sPlHeaderEncode", func(t *testing.T) {
-		d := newDvb2s("normal", 2)
+		d := newDvb2s("normal", 2, true)
 		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
 		gpoly := make([]bool, 200) // TODO: 200 is magic number
 
@@ -230,7 +230,7 @@ func TestDvb2sPlHeaderEncode(t *testing.T) {
 
 func TestDvb2sPlFrameScramble(t *testing.T) {
 	t.Run("Dvb2sPlFrameScramble", func(t *testing.T) {
-		d := newDvb2s("normal", 2)
+		d := newDvb2s("normal", 2, true)
 		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
 		gpoly := make([]bool, 200) // TODO: 200 is magic number
 
@@ -271,9 +271,36 @@ func TestDvb2sPlFrameScramble(t *testing.T) {
 			if cmplx.Abs(d.plFrame[i]-c) > floatTolerance {
 				t.Errorf("[%d]: %f != %f with range %f\n", i, d.plFrame[i], c, cmplx.Abs(d.plFrame[i]-c))
 			}
-			// else {
-			// 	t.Logf("[%d]: %f != %f with range %f\n", i, d.plFrame[i], c, cmplx.Abs(d.plFrame[i]-c))
-			// }
 		}
+	})
+}
+
+func TestDvb2sOutInterpolateBbShape(t *testing.T) {
+	t.Run("Dvb2sOutInterpolateBbShape", func(t *testing.T) {
+		d := newDvb2s("normal", 2, false)
+		d.LoadInputData("../../dvb_s2_qpsk_34/3_bbscrambler.txt")
+		gpoly := make([]bool, 200) // TODO: 200 is magic number
+
+		d.bchInit(gpoly)
+		d.bchEncode(gpoly)
+		d.ldpcEncode()
+		d.mapIntoConstellation()
+		d.plHeaderEncode()
+		d.plScramble()
+		d.outInterpolateBbShape()
+
+		file, err := os.Create("output.txt")
+
+		if err != nil {
+			t.Error(err)
+		}
+		defer file.Close()
+
+		writer := bufio.NewWriter(file)
+		for _, value := range d.outFrame {
+			writer.WriteString(fmt.Sprintf("%f\t%f\n", real(value), imag(value)))
+		}
+
+		writer.Flush()
 	})
 }

@@ -9,21 +9,24 @@ import (
 )
 
 type dvb2s struct {
-	modcod          int
-	fecFrameType    int
-	oversampling    int
-	ldpcQFactor     int
-	bitsPerPlSymbol int
-	bbFrame         []bool
-	bchBlock        []bool
-	bchFec          []bool
-	ldpcFec         []bool
-	fecFrame        []bool
-	plFrame         []complex128
-	plHeader        []complex128
+	modcod              int
+	fecFrameType        int
+	oversampling        int
+	ldpcQFactor         int
+	bitsPerPlSymbol     int
+	interpolateByRepeat bool
+	bbFrame             []bool
+	bchBlock            []bool
+	bchFec              []bool
+	ldpcFec             []bool
+	fecFrame            []bool
+	plFrame             []complex128 // TODO: combine plFrame with plHeader
+	plHeader            []complex128
+	outFrame            []complex128
+	firFilter           *fir
 }
 
-func newDvb2s(fecFrameType string, oversampling int) *dvb2s {
+func newDvb2s(fecFrameType string, oversampling int, interpolateByRepeat bool) *dvb2s {
 	var d dvb2s
 
 	fecFrameSize := fecFramesizeMap[fecFrameType]
@@ -54,6 +57,7 @@ func newDvb2s(fecFrameType string, oversampling int) *dvb2s {
 	d.bitsPerPlSymbol = 2
 
 	plFrameSize := fecFrameSize / d.bitsPerPlSymbol
+	outFrameSize := plFrameSize * d.oversampling
 
 	d.fecFrame = make([]bool, fecFrameSize)
 	d.bbFrame = d.fecFrame[:bbFrameSize]
@@ -62,6 +66,19 @@ func newDvb2s(fecFrameType string, oversampling int) *dvb2s {
 	d.ldpcFec = d.fecFrame[bchBlockSize:]
 	d.plFrame = make([]complex128, plFrameSize)
 	d.plHeader = make([]complex128, slotSize)
+	d.outFrame = make([]complex128, outFrameSize)
+
+	switch oversampling {
+	case 2:
+		// d.firFilter = newFir(firRrc2x035Table)
+		d.firFilter = newFir(firRrc2x035BigTable)
+	case 4:
+		d.firFilter = newFir(firRrc4x035Table)
+	default:
+		panic("unknown oversampling\n")
+	}
+
+	d.interpolateByRepeat = interpolateByRepeat
 
 	return &d
 }
@@ -279,6 +296,30 @@ func (d *dvb2s) plScramble() {
 			d.plFrame[i] = complex(imag(d.plFrame[i]), -real(d.plFrame[i]))
 		default:
 			panic("unkwown symbol in scrambler\n")
+		}
+	}
+}
+
+func (d *dvb2s) outInterpolateBbShape() {
+	scale := 1.0 / float64(d.oversampling)
+	j := 0
+	if d.interpolateByRepeat {
+		for _, value := range d.plFrame {
+			value = complex(real(value)*scale, imag(value)*scale)
+			for i := 0; i < d.oversampling; i++ {
+				d.outFrame[j] = d.firFilter.fir(value)
+				j++
+			}
+		}
+	} else {
+		nullValue := complex(0.0, 0.0)
+		for _, value := range d.plFrame {
+			d.outFrame[j] = d.firFilter.fir(value)
+			j++
+			for i := 1; i < d.oversampling; i++ {
+				d.outFrame[j] = d.firFilter.fir(nullValue)
+				j++
+			}
 		}
 	}
 }

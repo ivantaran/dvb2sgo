@@ -24,6 +24,7 @@ type dvb2s struct {
 	plHeader            []complex128
 	outFrame            []complex128
 	firFilter           *fir
+	bbHeader            *bbHeader
 }
 
 func newDvb2s(fecFrameType string, oversampling int, interpolateByRepeat bool) *dvb2s {
@@ -79,6 +80,8 @@ func newDvb2s(fecFrameType string, oversampling int, interpolateByRepeat bool) *
 	}
 
 	d.interpolateByRepeat = interpolateByRepeat
+
+	d.bbHeader = newBbHeader()
 
 	return &d
 }

@@ -337,3 +337,12 @@ func TestDvb2sOutInterpolateBbShape(t *testing.T) {
 		writer.Flush()
 	})
 }
+
+func TestDvb2sBbHeader(t *testing.T) {
+	t.Run("TestDvb2sBbHeader", func(t *testing.T) {
+		h := newBbHeader()
+		if h == nil {
+			t.Error("bbheader is nil")
+		}
+	})
+}

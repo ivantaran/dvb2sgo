@@ -15,6 +15,7 @@ type dvb2s struct {
 	ldpcQFactor         int
 	bitsPerPlSymbol     int
 	interpolateByRepeat bool
+	inFrame             []bool
 	bbFrame             []bool
 	bchBlock            []bool
 	bchFec              []bool
@@ -60,6 +61,11 @@ func newDvb2s(fecFrameType string, oversampling int, interpolateByRepeat bool) *
 	plFrameSize := fecFrameSize / d.bitsPerPlSymbol
 	outFrameSize := plFrameSize * d.oversampling
 
+	d.bbHeader = newBbHeader()
+
+	inFrameSize := d.bbHeader.getDataFieldLength()
+	d.inFrame = make([]bool, inFrameSize)
+
 	d.fecFrame = make([]bool, fecFrameSize)
 	d.bbFrame = d.fecFrame[:bbFrameSize]
 	d.bchBlock = d.fecFrame[:bchBlockSize]
@@ -81,12 +87,10 @@ func newDvb2s(fecFrameType string, oversampling int, interpolateByRepeat bool) *
 
 	d.interpolateByRepeat = interpolateByRepeat
 
-	d.bbHeader = newBbHeader()
-
 	return &d
 }
 
-func (d *dvb2s) LoadInputData(fileName string) error {
+func (d *dvb2s) LoadInputData(fileName string) error { //TODO: remove this method
 
 	file, err := os.Open(fileName)
 
@@ -112,7 +116,40 @@ func (d *dvb2s) LoadInputData(fileName string) error {
 		}
 	}
 
-	fmt.Printf("loaded data size: %d\n", i)
+	return nil
+}
+
+func (d *dvb2s) LoadInputFrame(fileName string) error {
+
+	file, err := os.Open(fileName)
+
+	if err != nil {
+		return err
+	}
+
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	var i int
+	for scanner.Scan() {
+		value, err := strconv.Atoi(strings.TrimSpace(scanner.Text()))
+		if err != nil {
+			fmt.Printf("last line is: \"%s\"\n", scanner.Text())
+			return err
+		}
+		d.inFrame[i] = value > 0
+		i++
+		if i == len(d.inFrame) {
+			break
+		}
+	}
+
+	if i != len(d.inFrame) {
+		return fmt.Errorf("incorrect frame length: %d != %d", i, len(d.inFrame))
+	}
+
+	d.crc8Encode()
 
 	return nil
 }
@@ -336,4 +373,24 @@ func (d *dvb2s) outInterpolateBbShape() { // TODO: preload and push forward the 
 			}
 		}
 	}
+}
+
+func (d *dvb2s) crc8Encode() {
+
+	if d.bbHeader.matype1[0]&TransportStream == 0 {
+		return
+	}
+
+	upl := d.bbHeader.getUserPacketLength()
+
+	for upPointer := 0; upPointer < len(d.inFrame)-upl-8; upPointer += upl {
+		up := d.inFrame[upPointer+8 : upPointer+upl]
+		upCrc := d.inFrame[upPointer+upl : upPointer+upl+8]
+		crc := d.bbHeader.crc8Encode(up)
+		for i := 0; i < 8; i++ {
+			upCrc[i] = crc&0x01 > 0
+			crc >>= 1
+		}
+	}
+
 }

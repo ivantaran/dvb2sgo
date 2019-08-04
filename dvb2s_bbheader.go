@@ -52,7 +52,7 @@ func newBbHeader() *bbHeader {
 	h.userPacketLength[0] = uint8(upl >> 8)
 	h.userPacketLength[1] = uint8(upl)
 
-	dfl := 48408
+	dfl := 48408 - len(h.bitstream)
 	h.dataFieldLength[0] = uint8(dfl >> 8)
 	h.dataFieldLength[1] = uint8(dfl)
 
@@ -70,5 +70,45 @@ func newBbHeader() *bbHeader {
 		}
 	}
 
+	h.crc8[0] = h.crc8Encode(h.bitstream[:len(h.bitstream)-8])
+
+	for i, sr := len(h.bitstream)-8, h.crc8[0]; i < len(h.bitstream); i, sr = i+1, sr>>1 {
+		h.bitstream[i] = (sr & 0x01) > 0
+	}
+
 	return &h
+}
+
+func (h *bbHeader) crc8Encode(data []bool) uint8 {
+	// poly := uint8(0x57)
+	// sr := uint8(0x00)
+
+	// for _, value := range data {
+	// 	if (sr&0x01 > 0) != value {
+	// 		sr = ((sr ^ poly) >> 1) | 0x80
+	// 	} else {
+	// 		sr >>= 1
+	// 	}
+	// }
+
+	poly := uint8(0xab)
+	sr := uint8(0x00)
+
+	for _, value := range data {
+		swap := (sr&0x01 > 0) != value
+		sr >>= 1
+		if swap {
+			sr ^= poly
+		}
+	}
+
+	return sr
+}
+
+func (h *bbHeader) getUserPacketLength() int {
+	return int((uint16(h.userPacketLength[0]) << 8) | uint16(h.userPacketLength[1]))
+}
+
+func (h *bbHeader) getDataFieldLength() int {
+	return int((uint16(h.dataFieldLength[0]) << 8) | uint16(h.dataFieldLength[1]))
 }

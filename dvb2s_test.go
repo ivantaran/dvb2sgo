@@ -344,5 +344,50 @@ func TestDvb2sBbHeader(t *testing.T) {
 		if h == nil {
 			t.Error("bbheader is nil")
 		}
+
+		file, err := os.Open("../../dvb_s2_qpsk_34/2_merger_slicer.txt")
+
+		if err != nil {
+			t.Error(err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+
+		for i := 0; i < len(h.bitstream) && scanner.Scan(); i++ {
+			v, _ := strconv.Atoi(strings.TrimSpace(scanner.Text()))
+			if h.bitstream[i] != (v > 0) {
+				t.Errorf("[%2d] %t != %t\n", i, h.bitstream[i], v > 0)
+			}
+		}
+
+	})
+}
+
+func TestDvb2sCrc8Encode(t *testing.T) {
+	t.Run("TestDvb2sCrc8Encode", func(t *testing.T) {
+		d := newDvb2s("normal", 2, false)
+		err := d.LoadInputFrame("../../dvb_s2_qpsk_34/0_data.txt")
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		file, err := os.Open("../../dvb_s2_qpsk_34/1_crcencoder.txt")
+
+		if err != nil {
+			t.Error(err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+
+		for i := 0; i < len(d.inFrame) && scanner.Scan(); i++ {
+			v, _ := strconv.Atoi(strings.TrimSpace(scanner.Text()))
+			if d.inFrame[i] != (v > 0) {
+				t.Errorf("[%4d] %t != %t\n", i, d.inFrame[i], v > 0)
+			}
+		}
+
 	})
 }

@@ -353,6 +353,24 @@ func (d *dvb2s) plScramble() {
 
 func (d *dvb2s) outInterpolateBbShape() { // TODO: preload and push forward the filter
 	scale := 1.0 / float64(d.oversampling)
+
+	if d.interpolateByRepeat {
+		for _, value := range d.plFrame {
+			value = complex(real(value)*scale, imag(value)*scale)
+			for i := 0; i < d.oversampling; i++ {
+				d.firFilter.fir(value)
+			}
+		}
+	} else {
+		nullValue := complex(0.0, 0.0)
+		for _, value := range d.plFrame[len(d.plFrame)-len(firRrc2x035BigTable)/d.oversampling/2:] {
+			d.firFilter.fir(value)
+			for i := 1; i < d.oversampling; i++ {
+				d.firFilter.fir(nullValue)
+			}
+		}
+	}
+
 	j := 0
 	if d.interpolateByRepeat {
 		for _, value := range d.plFrame {

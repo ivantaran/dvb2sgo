@@ -329,12 +329,29 @@ func TestDvb2sOutInterpolateBbShape(t *testing.T) {
 		}
 		defer file.Close()
 
+		fileBinary, err := os.Create("output.bin")
+		if err != nil {
+			t.Error(err)
+		}
+		defer fileBinary.Close()
+
 		writer := bufio.NewWriter(file)
+		writerBinary := bufio.NewWriter(fileBinary)
 		for _, value := range d.outFrame {
-			writer.WriteString(fmt.Sprintf("%f\t%f\n", real(value), imag(value)))
+			amp := 32767.0
+			rval := real(value)
+			ival := imag(value)
+			writer.WriteString(fmt.Sprintf("%f\t%f\n", rval, ival))
+			rval *= amp
+			ival *= amp
+			writerBinary.WriteByte(byte(int16(rval) >> 8))
+			writerBinary.WriteByte(byte(int16(rval) >> 0))
+			writerBinary.WriteByte(byte(int16(ival) >> 8))
+			writerBinary.WriteByte(byte(int16(ival) >> 0))
 		}
 
 		writer.Flush()
+		writerBinary.Flush()
 	})
 }
 
